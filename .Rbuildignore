@@ -1,0 +1,7 @@
+^renv$
+^renv\.lock$
+^LICENSE\.md$
+^README\.Rmd$
+^\.httr-oauth$
+^.*\.Rproj$
+^\.Rproj\.user$
