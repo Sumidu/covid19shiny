@@ -88,9 +88,9 @@ ui <- fluidPage(
     meta() %>%
         meta_social(
             title = "A comparative visualization of the Corona virus outbreak",
-            description = "<meta> and social media cards for web things in R",
+            description = "A small shiny application designed to help understand the trajectory of the corona outbreak between countries.",
             url = "https://github.com/Sumidu/covid19shiny",
-            image = "https://github.com/Sumidu/covid19shiny/figures/example.png",
+            image = "https://github.com/Sumidu/covid19shiny/blob/master/figures/example.png?raw=true",
             image_alt = "A graph plot",
             twitter_creator = "@sumidu",
             twitter_card_type = "summary",
