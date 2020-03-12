@@ -102,6 +102,7 @@ ui <- fluidPage(
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
         sidebarPanel(
+            withMathJax(),
             selectInput("country_selector", "Select Countries", countries, multiple = TRUE, selectize = TRUE, selected = c("US", "Germany", "Italy", "France", "Iran", "Spain", "Korea, South")),
             sliderInput("cases_limit", "Pick #cases for alignment", min = 1, max = 500, value = 100),
             sliderInput("start_date", "Limit Duration", min = 0, max = 100, value=c(0,100)),
@@ -120,7 +121,16 @@ ui <- fluidPage(
         # Show a plot of the generated distribution
         mainPanel(
            plotOutput("distPlot", width = "100%", height = "640"),
-           DT::DTOutput("modeltable")
+           shiny::wellPanel(
+               h4("Log-Linear model fit"),
+               withMathJax(
+               div("This table shows the exponential of the log-linear model fit as a percentage value and the corresponding p-value. ",
+                   "A growth rate of 30% indicates that that the following exponential function best approximates the curve:",
+                   "$$\\text{cases} = 1.3^{days} + c$$",
+                   "The constant is not reported here. This would mean approx. a 30% increase of cases per day.")),br(),
+               DT::DTOutput("modeltable")    
+           )
+           
         )
     )
 )

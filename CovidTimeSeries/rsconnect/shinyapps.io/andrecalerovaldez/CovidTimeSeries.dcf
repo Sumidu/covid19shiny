@@ -5,8 +5,8 @@ account: andrecalerovaldez
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 1942152
-bundleId: 2876276
+bundleId: 2876338
 url: https://andrecalerovaldez.shinyapps.io/CovidTimeSeries/
-when: 1584048915.29914
+when: 1584050540.17645
 asMultiple: FALSE
 asStatic: FALSE
