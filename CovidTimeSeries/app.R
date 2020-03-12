@@ -11,6 +11,9 @@
 library(tidyverse)
 library(lubridate)
 library(shiny)
+library(shinydashboard)
+library(flexdashboard)
+library(shinyWidgets)
 library(plotly)
 library(DT)
 library(metathis)
@@ -77,11 +80,13 @@ all_data <- bind_rows(confirmed, deaths) %>%
     group_by(`Country/Region`, date, type) %>% 
     summarise(value = sum(value))
 
-countries <- all_data$`Country/Region` %>% unique() %>% as.list()
+countries <- all_data %>% arrange(desc(value)) %>% 
+        pull(`Country/Region`) %>% unique() 
 
 data_start <- all_data %>% pull(date) %>% min()
+data_end <- all_data %>% pull(date) %>% max()
 
-
+all_cases <- all_data %>% group_by(`Country/Region`) %>%  summarise(cases = max(value)) %>% tally(cases) %>% pull(n)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -103,18 +108,25 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             withMathJax(),
-            selectInput("country_selector", "Select Countries", countries, multiple = TRUE, selectize = TRUE, selected = c("US", "Germany", "Italy", "France", "Iran", "Spain", "Korea, South")),
+            h4("Total cases:", scales::number(all_cases)),
+            pickerInput("country_selector", "Select Countries", countries, multiple = TRUE, 
+                        options = list(`actions-box` = TRUE),
+                        #selectize = TRUE, 
+                        selected = c("US", "Germany", "Italy", "France", "Iran", "Spain", "Korea, South")),
             sliderInput("cases_limit", "Pick #cases for alignment", min = 1, max = 500, value = 100),
             sliderInput("start_date", "Limit Duration", min = 0, max = 100, value=c(0,100)),
-            checkboxInput("scalesfree", "Free Y Scale", value = TRUE),
+            checkboxInput("scalesfree", "Free Y-Scale", value = TRUE),
             checkboxInput("logscale", "Logarithmic Y-Scale", value = TRUE),
             checkboxInput("labelshow", "Show case counts", value = FALSE),
-            shiny::p(paste("This web-app uses data from the Github repository provided by Johns Hopkins CSSE at https://github.com/CSSEGISandData/COVID-19.",
-                           "The data is typically 1 day behind current data. No warranties.")),
-            shiny::p("For current data follow this ", 
+            shiny::div("This web-app uses data from the Github repository provided by",
+                        a("Johns Hopkins CSSE.", href="https://github.com/CSSEGISandData/COVID-19"),
+                           "The data is typically 1 day behind current data."),
+            br(),
+            div("Last data update:", format(data_end, "%d-%B-%Y") ," - No warranties."),
+            div("For current data follow this ", 
                      shiny::a("link.", href = "https://www.arcgis.com/apps/opsdashboard/index.html#/bda7594740fd40299423467b48e9ecf6")
                      ),
-            shiny::p("Created by André Calero Valdez. Suggestions: Tweet me @sumidu"),
+            div("Created by André Calero Valdez. Suggestions: Tweet me @sumidu"),
             #DT::DTOutput("models"),
         ),
 
@@ -166,11 +178,13 @@ server <- function(input, output) {
     
     
     output$distPlot <- renderPlot({
+        req(input$country_selector)
         sdate <- input$start_date[1]
         edate <- input$start_date[2]
         scaleparam <- "fixed"
         if(input$scalesfree) scaleparam <- "free_y"
         p <- get_data() %>% 
+            filter(value > 0) %>% 
             filter(`Country/Region` %in% input$country_selector) %>% 
             filter(matched_days %in% sdate:edate) %>% 
             ggplot()+
@@ -190,7 +204,7 @@ server <- function(input, output) {
         if (input$labelshow){
             p <- p + geom_label()
         }
-        p + theme_bw(base_size = 14) + ggtitle("Comparison of case trajectories by Country")
+        p + theme_bw(base_size = 16) + ggtitle("Comparison of case trajectories by country") 
         
     })
     
@@ -216,7 +230,9 @@ server <- function(input, output) {
             select(`Country/Region`, `Growth Rate`, `p Value`)
         
         
-    }, ) 
+    })
+    
+    
 }
 
 # Run the application 
