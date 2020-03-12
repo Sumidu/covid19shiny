@@ -13,7 +13,7 @@ library(lubridate)
 library(shiny)
 library(plotly)
 library(DT)
-
+library(metathis)
 options(scipen = 9999)
 
 
@@ -87,14 +87,14 @@ data_start <- all_data %>% pull(date) %>% min()
 ui <- fluidPage(
     meta() %>%
         meta_social(
-            title = "A comparative visualization",
+            title = "A comparative visualization of the Corona virus outbreak",
             description = "<meta> and social media cards for web things in R",
-            url = "https://pkg.garrickadenbuie.com/metathis",
-            image = "https://garrickadenbuie.com/apple-touch-icon-114x114.png",
-            image_alt = "An image for social meda cards",
-            twitter_creator = "@grrrck",
+            url = "https://github.com/Sumidu/covid19shiny",
+            image = "https://github.com/Sumidu/covid19shiny/figures/example.png",
+            image_alt = "A graph plot",
+            twitter_creator = "@sumidu",
             twitter_card_type = "summary",
-            twitter_site = "@grrrck"
+            twitter_site = "@sumidu"
         ),
     # Application title
     titlePanel("Comparing Corona Trajectories"),
