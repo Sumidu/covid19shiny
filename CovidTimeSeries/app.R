@@ -126,8 +126,10 @@ ui <- fluidPage(
                withMathJax(
                div("This table shows the exponential of the log-linear model fit as a percentage value and the corresponding p-value. ",
                    "A growth rate of 30% indicates that that the following exponential function best approximates the curve:",
-                   "$$\\text{cases} = 1.3^{days} + c$$",
-                   "The constant is not reported here. This would mean approx. a 30% increase of cases per day.")),br(),
+                   "$$\\text{cases} = cases_{0} \\times 1.3^{days} + c$$",
+                   "The constant cases0 refers the the alignment specified above. The constant c adjusts for small differences and is not reported here.",
+                   br(),
+                   "A growth rate of 30% would mean approx. 30% increase of cases per day.")),br(),
                DT::DTOutput("modeltable")    
            )
            
