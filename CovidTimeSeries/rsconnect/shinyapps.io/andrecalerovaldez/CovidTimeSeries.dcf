@@ -1,0 +1,12 @@
+name: CovidTimeSeries
+title: CovidTimeSeries
+username:
+account: andrecalerovaldez
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1942152
+bundleId: 2876212
+url: https://andrecalerovaldez.shinyapps.io/CovidTimeSeries/
+when: 1584047300.62705
+asMultiple: FALSE
+asStatic: FALSE
