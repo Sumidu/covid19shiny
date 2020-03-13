@@ -17,10 +17,46 @@ library(shinyWidgets)
 library(plotly)
 library(DT)
 library(metathis)
+library(directlabels)
+library(ggthemes)
+library(hrbrthemes)
+library(png)
+library(magick)
+library(gridExtra)
+library(grid)
+
 options(scipen = 9999)
 
 
 
+get_png <- function(filename) {
+    grid::rasterGrob(png::readPNG(filename), interpolate = TRUE)
+}
+
+get_txt <- function(txt) {
+    grid::textGrob(txt)
+}
+
+add_logoplot <- function(p, size = 0.05){
+    imgby = get_png("by.png")
+    imgcc = get_png("cc.png")
+    txt = get_txt("CC-BY André Calero Valdez/@sumidu")
+    xpos = 0.01
+    #size = 0.05
+    logo <- 
+        ggplot() +
+        aes(x = 0:1, y = 1) +
+        theme_void() +
+        annotation_custom(txt, xmin = 0, xmax = 0.5, ymin = 0) +
+        annotation_custom(imgby, xmin = 1-xpos, xmax = 1-(xpos + size), ymin = 0)+
+        annotation_custom(imgcc, xmin = 1-(xpos+size), xmax = 1-(xpos+(2*size)), ymin = 0) +
+        NULL
+    gridExtra::grid.arrange(p, logo, heights = c(1-size, size))
+}
+
+
+#p <- qplot(mtcars$mpg) 
+#add_logoplot(p, 0.05)
 
 write_ts <- function(key) {
     file_timestamp <- paste0(key,"_updated.rds")
@@ -101,6 +137,15 @@ ui <- fluidPage(
             twitter_card_type = "summary",
             twitter_site = "@sumidu"
         ),
+    HTML("<link href='http://fonts.googleapis.com/css?family=Roboto' rel='stylesheet' type='text/css'>
+
+  <!-- use the font -->
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      font-size: 14px;
+    }
+  </style>"),
     # Application title
     titlePanel("Comparing Corona Trajectories"),
 
@@ -132,7 +177,7 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-           plotOutput("distPlot", width = "100%", height = "640"),
+           plotOutput("distPlot", width = "100%", height = "640"),br(),br(),
            shiny::wellPanel(
                h4("Log-Linear model fit"),
                withMathJax(
@@ -188,23 +233,40 @@ server <- function(input, output) {
             filter(`Country/Region` %in% input$country_selector) %>% 
             filter(matched_days %in% sdate:edate) %>% 
             ggplot()+
-            aes(x = matched_days, y = value, group = interaction(`Country/Region`, type), color = `Country/Region`,
+            aes(x = matched_days, y = value, 
+                group = interaction(`Country/Region`, type), 
+                color = `Country/Region`,
+                shape = `Country/Region`,
                 label = value) +
-            geom_line() +
-            geom_point()+
-           
-            #scale_x_date(date_breaks = "week") +
-            NULL +
+            geom_line(size = 1) +
+            geom_point(size = 3)+
             facet_wrap(~type, scales = scaleparam, ncol = 1) +
             labs(x = paste("Days after", input$cases_limit, "confirmed cases were reached.")) +
-            labs(y = "Count")
+            labs(y = "Count") +
+            NULL
         if(input$logscale) {
             p <- p + scale_y_log10() + labs(y = "Count (log-scale)")
         }
         if (input$labelshow){
-            p <- p + geom_label()
+            p <- p + geom_label() 
         }
-        p + theme_bw(base_size = 16) + ggtitle("Comparison of case trajectories by country") 
+        p + 
+            hrbrthemes::theme_ipsum_rc(base_size = 18) + 
+            ggtitle("Comparison of case trajectories by country") + 
+            theme(legend.position="bottom") + 
+            theme(plot.caption = element_text(family = "Roboto Condensed")) +
+            theme(plot.title = element_text(size = 24),
+                  axis.title.x = element_text(size = 16),
+                  axis.title.y = element_text(size = 16),
+                  strip.text.x = element_text(size = 18)
+                  ) +
+            scale_x_continuous(expand=c(0, 2)) +
+            coord_cartesian(clip = 'off') +
+            geom_dl(aes(label = `Country/Region`), method = list(dl.trans(x = x - 0.3, y = y + 0.4), dl.combine("last.points"), cex = 0.8)) -> p
+        
+        add_logoplot(p)
+            
+            
         
     })
     
