@@ -106,7 +106,6 @@ end
 
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 336
@@ -188,13 +187,13 @@ SLIDER
 35
 507
 239
-541
+540
 social-distance
 social-distance
 0.05
 1
 0.85
-0.05
+0.01
 1
 NIL
 HORIZONTAL
@@ -203,7 +202,7 @@ SLIDER
 36
 84
 240
-118
+117
 infection-probability
 infection-probability
 0
@@ -218,7 +217,7 @@ SLIDER
 37
 139
 239
-173
+172
 incubation-time
 incubation-time
 0
@@ -233,7 +232,7 @@ SLIDER
 37
 202
 237
-236
+235
 severity-rate
 severity-rate
 0
@@ -248,7 +247,7 @@ SLIDER
 37
 275
 239
-309
+308
 death-rate
 death-rate
 0
@@ -263,7 +262,7 @@ SLIDER
 35
 396
 239
-430
+429
 illness-duration
 illness-duration
 0
@@ -312,7 +311,7 @@ MONITOR
 810
 295
 891
-341
+340
 Days passed
 ticks / 24
 1
@@ -323,7 +322,7 @@ SLIDER
 601
 505
 774
-539
+538
 hospital-capacity
 hospital-capacity
 0
@@ -446,7 +445,7 @@ MONITOR
 895
 296
 1030
-342
+341
 Unaffected %
 count turtles with [color = green] / people-count * 100
 2
@@ -457,7 +456,7 @@ MONITOR
 146
 315
 196
-353
+352
  %
 severity-rate * death-rate / 100
 2
@@ -536,6 +535,8 @@ The amount of ill people grows exponentially leading to a quick reduction in soc
 ## THINGS TO TRY
 
 Try exploring the social distancing and hospital capacity sliders for fixed population sizes. You can restart the simulation by pressing the "S" key and run the simulation by pressing the "R" key. This allows to quickly compare model runs.
+
+In the default configuration interesting differences occur between 0.7 and 0.95 social distancing.
 
 ## EXTENDING THE MODEL
 
