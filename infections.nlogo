@@ -105,7 +105,6 @@ to-report finished?
 end
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 336
@@ -498,6 +497,36 @@ TEXTBOX
 Flatten the curve
 22
 0.0
+1
+
+TEXTBOX
+287
+554
+437
+572
+First, click here ->
+13
+15.0
+1
+
+TEXTBOX
+705
+554
+855
+572
+<- Next, click here
+12
+15.0
+1
+
+TEXTBOX
+28
+545
+214
+577
+Then, play aroud with this ^
+13
+15.0
 1
 
 @#$#@#$#@
