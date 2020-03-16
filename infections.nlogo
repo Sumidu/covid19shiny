@@ -575,7 +575,7 @@ The spatial model is a high level of abstraction from real human interaction.
 
 ## CREDITS AND REFERENCES
 
-by André Calero Valdez (@sumidu)
+by André Calero Valdez (@sumidu) web calerovaldez.com
 @#$#@#$#@
 default
 true
