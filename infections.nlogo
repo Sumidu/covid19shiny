@@ -103,7 +103,6 @@ to-report finished?
 
   report false
 end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 336
