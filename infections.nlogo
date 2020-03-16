@@ -104,7 +104,6 @@ to-report finished?
   report false
 end
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 336
@@ -251,7 +250,7 @@ death-rate
 death-rate
 0
 100
-17.0
+19.0
 1
 1
 %
@@ -326,7 +325,7 @@ hospital-capacity
 hospital-capacity
 0
 100
-15.0
+20.0
 1
 1
 NIL
@@ -888,7 +887,7 @@ NetLogo 6.0.4
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="Test with 100 agents" repetitions="100" runMetricsEveryStep="true">
+  <experiment name="Test with 100 agents" repetitions="5" runMetricsEveryStep="true">
     <setup>setup</setup>
     <go>go</go>
     <exitCondition>finished?</exitCondition>
