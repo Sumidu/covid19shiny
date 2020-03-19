@@ -163,6 +163,10 @@ ui <- fluidPage(
             checkboxInput("scalesfree", "Free Y-Scale", value = TRUE),
             checkboxInput("logscale", "Logarithmic Y-Scale", value = TRUE),
             checkboxInput("labelshow", "Show case counts", value = FALSE),
+            br(), br(),
+            h4("Change labels"),
+            textInput("titletxt", "Title", value = "Comparison of case trajectories by country"),
+            br(),br(),
             shiny::div("This web-app uses data from the Github repository provided by",
                         a("Johns Hopkins CSSE.", href="https://github.com/CSSEGISandData/COVID-19"),
                            "The data is typically 1 day behind current data."),
@@ -172,6 +176,8 @@ ui <- fluidPage(
                      shiny::a("link.", href = "https://www.arcgis.com/apps/opsdashboard/index.html#/bda7594740fd40299423467b48e9ecf6")
                      ),
             div("Created by André Calero Valdez. Suggestions: Tweet me @sumidu"),
+            
+            
             #DT::DTOutput("models"),
         ),
 
@@ -239,7 +245,7 @@ server <- function(input, output) {
                 shape = `Country/Region`,
                 label = value) +
             geom_line(size = 1) +
-            geom_point(size = 3)+
+            #geom_point(size = 3)+
             facet_wrap(~type, scales = scaleparam, ncol = 1) +
             labs(x = paste("Days after", input$cases_limit, "confirmed cases were reached.")) +
             labs(y = "Count") +
@@ -252,7 +258,7 @@ server <- function(input, output) {
         }
         p + 
             hrbrthemes::theme_ipsum_rc(base_size = 18) + 
-            ggtitle("Comparison of case trajectories by country") + 
+            ggtitle(input$titletxt) + 
             theme(legend.position="bottom") + 
             theme(plot.caption = element_text(family = "Roboto Condensed")) +
             theme(plot.title = element_text(size = 24),
