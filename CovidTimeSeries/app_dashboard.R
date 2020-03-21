@@ -26,9 +26,8 @@ library(gridExtra)
 library(grid)
 library(jsonlite)
 library(stringdist)
+library(ggrepel)
 options(scipen = 9999)
-
-
 
 get_png <- function(filename) {
   grid::rasterGrob(png::readPNG(filename), interpolate = TRUE)
@@ -100,6 +99,39 @@ read_death_cases <- function() {
                    "deaths.rds")
 }
 
+
+# API DATA ----
+
+read_recent_cases <- function(){
+  json_data <- jsonlite::read_json("https://corona.lmao.ninja/countries")
+  most_recent_data_pre <- map(json_data, as.data.frame) %>% do.call(rbind,.)
+  
+  
+  most_recent_data_pre$country <- fct_recode(most_recent_data_pre$country,
+                                             "Korea, South" = "S. Korea",
+                                             "United Kingdom" = "UK", 
+                                             "Cruise Ship" = "Diamond Princess",
+                                             "US" = "USA",
+                                             "Taiwan*" = "Taiwan"
+  )
+  
+  most_recent_data_pre
+}
+
+closest_match <- function(x, list) {
+  id <- stringdist::amatch(x = x, countries)
+  countries[id]
+}
+
+get_png <- function(filename) {
+  grid::rasterGrob(png::readPNG(filename), interpolate = TRUE)
+}
+
+get_txt <- function(txt) {
+  grid::textGrob(txt)
+}
+
+
 confirmed <- read_confirmed_cases() %>% 
   gather(date, value, -`Province/State`, -`Country/Region`, -Lat, -Long) %>% 
   mutate(date = paste0(date,"20")) %>% 
@@ -121,24 +153,10 @@ countries <- all_data %>% arrange(desc(value)) %>%
   pull(`Country/Region`) %>% unique() 
 
 
+most_recent_data_pre <- read_recent_cases()
 
-closest_match <- function(x, list) {
-  id <- stringdist::amatch(x = x, countries)
-  countries[id]
-}
-
-
-json_data <- jsonlite::read_json("https://corona.lmao.ninja/countries")
-most_recent_data_pre <- map(json_data, as.data.frame) %>% do.call(rbind,.)
 all_cases <- most_recent_data_pre %>% as_tibble() %>% tally(cases) %>% pull(n)
-
-most_recent_data_pre$country <- fct_recode(most_recent_data_pre$country,
-                                               "Korea, South" = "S. Korea",
-                                               "United Kingdom" = "UK", 
-                                                "Cruise Ship" = "Diamond Princess",
-                                                "US" = "USA",
-                                                "Taiwan*" = "Taiwan"
-                                            )
+all_deaths <- most_recent_data_pre %>% as_tibble() %>% tally(deaths) %>% pull(n)
 
 most_recent_data <- most_recent_data_pre %>% 
   as_tibble() %>% 
@@ -218,59 +236,71 @@ ui <- function(request) {
   dashboardSidebar(disable = TRUE),
   dashboardBody(withMathJax(),
                 fluidRow(
-                  column(width = 4,
+                  column(width = 8,
+                    infoBox(width = 6, "Total cases", value = scales::number(all_cases), color = "orange"),
+                    infoBox(width = 6, "Total deaths", value = scales::number(all_deaths), color = "red"),
                     box(width = 12,
-                      h4("Total cases:", scales::number(all_cases)),
-                      pickerInput("country_selector", "Select Countries", countries, multiple = TRUE, 
-                                  options = list(`actions-box` = TRUE),
-                                  #selectize = TRUE, 
-                                  selected = c("US", "Germany", "Italy", "France", "Spain", "Korea, South")),
-                      sliderInput("cases_limit", "Pick #cases for alignment", min = 1, max = 500, value = 100),
-                      sliderInput("start_date", "Limit Duration", min = 0, max = 100, value=c(0,100)),
-                      checkboxInput("scalesfree", "Free Y-Scale", value = TRUE),
-                      checkboxInput("logscale", "Logarithmic Y-Scale", value = TRUE),
-                      checkboxInput("labelshow", "Show case counts", value = FALSE),
-                      uiOutput("fitselector"),
-                      bookmarkButton()
+                        uiOutput("distPlotUI"),
+                      ),
+                    box(width = 12, title = "Growth Rates by Country", collapsible = TRUE, 
+                        withMathJax(
+                          div(strong("Non-Linear least squares model fit"),br(),
+                              "This table shows the parameters of a non-linear model fit as a percentage value and the corresponding p-value.",
+                              "The model tries to fit the shown data to an exponential curve. From the results only the rate of change is reported here.",
+                              "A growth rate of 30% indicates that that the following exponential function best approximates the curve:",
+                              "$$\\text{cases} = cases_{0} \\times 1.3^{days} + c$$",
+                              "The constant cases0 refers the the alignment specified above. The constant c adjusts for small differences and is not reported here.",
+                              br(),
+                              "A growth rate of 30% would mean approx. 30% increase of cases per day.")),br(),
+                        DT::DTOutput("modeltable")    
+                      ),
+                    box(width = 12, title = "Case numbers", collapsible = TRUE,
+                        DT::DTOutput("casetable")
+                        )
+                    
                     ),
-                    # Labels ----
-                    box(width = 12, title = "Change Labels", collapsible = TRUE, collapsed = TRUE,
-                      textInput("titletxt", "Title", value = "Comparison of case trajectories by country"),
-                      textInput("yscale", "Y-Axis", value = "Count"),
-                      textInput("xscalepre", "X-Axis prefix", value = "Days after"),
-                      textInput("xscalepost", "X-Axis postfix", value = "confirmed cases were reached."),
-                      textInput("cases_txt", "Case label", value = "confirmed"),
-                      textInput("fatalities_txt", "Fatality label", value = "deceased"),
-                      textInput("legend_txt", "Legend label", value = "Country/Region")
-                      ),
-                    box(width = 12, 
-                      shiny::div("This web-app uses data from the Github repository provided by",
-                                 a("Johns Hopkins CSSE.", href="https://github.com/CSSEGISandData/COVID-19"),
-                                 "The data is typically 1 day behind current data."),
-                      br(),
-                      div("Last data update:", format(data_end, "%d-%B-%Y") ," - No warranties."),
-                      div("For current data follow this ", 
-                          shiny::a("link.", href = "https://www.arcgis.com/apps/opsdashboard/index.html#/bda7594740fd40299423467b48e9ecf6")
-                      ),
-                      div("Created by André Calero Valdez. Suggestions: Tweet me @sumidu")
-                    )
+                  column(width = 4,
+                         box(width = 12, title = "Configure visualization",
+                             pickerInput("country_selector", "Select Countries", countries, multiple = TRUE, 
+                                         options = pickerOptions(actionsBox = TRUE, 
+                                                                 liveSearch = TRUE
+                                                        ),
+                                         selected = c("US", "Germany", "Italy", "France", "Spain", "Korea, South")),
+                             sliderInput("cases_limit", "Pick number of cases for alignment", min = 1, max = 500, value = 100),
+                             sliderInput("start_date", "Limit X-axis range", min = 0, max = 100, value=c(0,100)),
+                             checkboxInput("scalesfree", "Free Y-axis", value = TRUE),
+                             checkboxInput("logscale", "Logarithmic Y-axis", value = TRUE),
+                             sliderInput("growth_rate", "Show reference growth rate %", min = 0, max = 100, value = 30),
+                             checkboxInput("labelshow", "Show case counts", value = FALSE),
+                             uiOutput("fitselector"),
+                             bookmarkButton(label = "Generate link for this setup")
+                         ),
+                         # Labels ----
+                         box(width = 12, title = "Customize Figure", collapsible = TRUE, collapsed = TRUE,
+                             textInput("titletxt", "Title", value = "Comparison of case trajectories by country"),
+                             textInput("yscale", "Y-Axis", value = "Count"),
+                             textInput("xscalepre", "X-Axis prefix", value = "Days after"),
+                             textInput("xscalepost", "X-Axis postfix", value = "confirmed cases were reached."),
+                             textInput("cases_txt", "Case label", value = "confirmed"),
+                             textInput("fatalities_txt", "Fatality label", value = "deceased"),
+                             textInput("legend_txt", "Legend label", value = "Country/Region"),
+                             sliderInput("figure_height", label = "Change figure height", min = 500, max = 2048, value = 800)
+                         ),
+                         box(width = 12, 
+                             shiny::div("This web-app uses data from the Github repository provided by",
+                                        a("Johns Hopkins CSSE.", href="https://github.com/CSSEGISandData/COVID-19"),
+                                        "The data is typically 1 day behind current data.",
+                                        "For most recent data it uses", a("this API.", href= "https://github.com/novelcovid/api"),
+                                        "This shiny app is available as source code", a("here.", href="https://github.com/Sumidu/covid19shiny")),
+                             br(),
+                             div("Last data update:", format(data_end, "%d-%B-%Y") ," - No warranties."),
+                             div("For current data follow this ", 
+                                 shiny::a("link.", href = "https://www.arcgis.com/apps/opsdashboard/index.html#/bda7594740fd40299423467b48e9ecf6")
+                             ),
+                             div("Created by André Calero Valdez. Suggestions: Tweet me @sumidu")
+                         )
                   ),
-                  box(width = 8,
-                    plotOutput("distPlot", width = "100%", height = "640")
-                    ),
-                  box(width = 8,
-                      h4("Log-Linear model fit"),
-                      withMathJax(
-                        div("This table shows the exponential of the log-linear model fit as a percentage value and the corresponding p-value. ",
-                            "A growth rate of 30% indicates that that the following exponential function best approximates the curve:",
-                            "$$\\text{cases} = cases_{0} \\times 1.3^{days} + c$$",
-                            "The constant cases0 refers the the alignment specified above. The constant c adjusts for small differences and is not reported here.",
-                            br(),
-                            "A growth rate of 30% would mean approx. 30% increase of cases per day.")),br(),
-                      DT::DTOutput("modeltable")    
-                    )
-                  
-                  )
+                 )
                 )
 )
 }
@@ -312,8 +342,11 @@ server <- function(input, output) {
     get_data() %>% pull(matched_days) %>% max() 
   })
   
+  
+  
+  # Model UI
   output$fitselector <- renderUI({
-    pickerInput("model_country", "Model for Growth", choices = input$country_selector, selected = input$country_selector[1])
+    pickerInput("model_country", "Show counts for", choices = input$country_selector, selected = input$country_selector[1])
   })
   
   
@@ -322,48 +355,78 @@ server <- function(input, output) {
   # Main Plot
   #
   #
+  
+  output$distPlotUI <- renderUI({
+    plotOutput("distPlot", width = "100%", height = input$figure_height)
+  })
+  
   # Plotrender ----
   output$distPlot <- renderPlot({
+    
+    ################# START 
     req(input$country_selector)
-    req(input$scalesfree)
     req(input$model_country)
     # get ranges
     sdate <- input$start_date[1]
     edate <- input$start_date[2]
     
+    ##### Free y scale?
     scaleparam <- "fixed"
-    if(input$scalesfree) scaleparam <- "free_y"
+    if(input$scalesfree) { scaleparam <- "free_y" }
     
-    # adjust labels
+    
+    ###### adjust labels to input in form
     levels <- (c("confirmed", "deceased"))
     names(levels) <- c(input$cases_txt, input$fatalities_txt)
     
-    refl <- get_ref_line()
     
+    ##### get filtered data 
     d <- get_data() %>% 
       filter(value > 0) %>% 
       filter(`Country/Region` %in% input$country_selector) %>% 
-      filter(matched_days %in% sdate:edate)
+      filter(matched_days %in% sdate:edate) %>% 
+      mutate(label = ifelse(`Country/Region` == input$model_country, scales::number(value,big.mark = ","), ""))
     
+    # apply factor recoding (i18n)
     d$type <- fct_recode(d$type, !!!levels)
+    
+    # get the range of the x-scale
+    limit <- d %>% ungroup() %>%  summarize(end = max(matched_days)) %>% head(1) %>% pull(end)
+    
+    glabel <- paste0(input$growth_rate, "% Growth")
+    
+    
+    # generate reference line ----
+    refl <- data.frame(xs = sdate:(limit-2)) %>% 
+      mutate(ys = input$cases_limit * (1 + input$growth_rate/100) ^xs) %>% 
+      mutate(type = c("confirmed"), 
+             `Country/Region` = glabel, label = "") %>% 
+      bind_rows(data.frame(xs = sdate:(limit-2)) %>% 
+                  mutate(ys = 1 * (1 + input$growth_rate/100) ^xs) %>% 
+                  mutate(type = c("deceased"), 
+                         `Country/Region` = glabel, label = ""))
+    
+    
     p <- d %>% 
       ggplot()+
       aes(x = matched_days, y = value, 
           group = interaction(`Country/Region`, type), 
           color = `Country/Region`,
           shape = `Country/Region`,
-          label = value) +
+          label = label) +
       
-      geom_line(size = 1) +
-      
-      geom_smooth(data = . %>% filter(`Country/Region`== input$model_country),
-                  method = "nls",
-                  formula = y ~ A * exp( B * x), 
-                  method.args = list( start = c( A = 4, B = 0.3 ) ), 
-                  se=FALSE, color = "black" ,linetype="dotted",
-                  fullrange=FALSE) +
+      #geom_smooth(data = . %>% filter(`Country/Region`== input$model_country),
+      #            method = "nls",
+      #            formula = y ~ A * exp( B * x), 
+      #            method.args = list( start = c( A = 4, B = 0.3 ) ), 
+      #            se=FALSE, color = "black" ,linetype="dotted",
+      #            fullrange=FALSE) +
       #geom_point(size = 3)+
-      
+      #stat_function(fun = fun.1) +
+      geom_line(data = refl, mapping = aes(x = xs, y=ys), color = "black", linetype="dotted")  +
+      geom_dl(data = refl, aes(x = xs, y=ys, label = `Country/Region`) ,
+              method = list(dl.trans(x = x + 0.2, y= y + 0.1), dl.combine("last.points"), rot=25, cex = 0.8), color = "gray" ) +
+      geom_line(size = 1) +
       facet_wrap(~type, scales = scaleparam, ncol = 1) +
       
       labs(x = paste(input$xscalepre, input$cases_limit, input$xscalepost)) +
@@ -372,11 +435,11 @@ server <- function(input, output) {
       NULL
     # Logscale ??
     if(input$logscale) {
-      p <- p + scale_y_log10() + labs(y = paste(input$yscale, "(log)"))
+      p <- p + 
+        scale_y_log10() +
+        labs(y = paste(input$yscale, "(log)"))  # + annotation_logticks(sides = "l") 
     }
-    if (input$labelshow){
-      p <- p + geom_label() 
-    }
+    
     p + 
       hrbrthemes::theme_ipsum_rc(base_size = 18) + 
       ggtitle(input$titletxt) + 
@@ -387,16 +450,31 @@ server <- function(input, output) {
             axis.title.y = element_text(size = 16),
             strip.text.x = element_text(size = 18)
       ) +
+      theme(panel.grid.minor.x = element_line(
+        colour = "gray",
+        size = 0.1)) +
       scale_x_continuous(expand=c(0, 2)) +
       coord_cartesian(clip = 'off') +
-      geom_dl(aes(label = `Country/Region`), method = list(dl.trans(x = x - 0.3, y = y + 0.4), dl.combine("last.points"), cex = 0.8)) -> p
-    
-    add_logoplot(p)
+      geom_dl(aes(label = `Country/Region`), 
+              method = list(dl.trans(x = x + 0.2, y= y + 0.1), dl.combine("last.points"), rot=25, cex = 0.8) 
+              )  -> p
+    if (input$labelshow){
+      p <- p + geom_point() + 
+        geom_label_repel(force = 2,
+                         nudge_y = 1,
+                         direction = "y", 
+                         hjust = 0, 
+                         show.legend = FALSE, 
+                         size = 3, min.segment.length = 0.2) 
+    }
+    add_logoplot(p) 
     
     
     
   })
+
   
+  # model table ----  
   output$modeltable <- renderDT({
     get_data() %>%
       filter(type == "confirmed") %>% 
@@ -411,17 +489,27 @@ server <- function(input, output) {
       filter(term == "days") %>% 
       mutate(estimate = exp(estimate)) %>% 
       select(`Country/Region`, estimate, std.error, statistic, p.value) %>% 
-      mutate(`Growth Rate` = paste0(round((estimate-1) * 100, 2), "%")) %>% 
+      #mutate(`Growth Rate` = paste0(round((estimate-1) * 100, 2), "%")) %>% 
+      mutate(`Growth Rate` = estimate - 1 ) %>% 
       mutate(`p Value` = scales::pvalue(p.value,
                                         accuracy = 0.001, # Number to round to
                                         decimal.mark = ".", # The character to be used to indicate the numeric decimal point
                                         add_p = TRUE)) %>% 
-      select(`Country/Region`, `Growth Rate`, `p Value`)
-    
-    
+      select(`Country/Region`, `Growth Rate`, `p Value`) %>% 
+      datatable() %>% 
+      formatPercentage(c('Growth Rate'), 1)
   })
   
-  
+  # case table ----
+  output$casetable <- renderDT({
+    most_recent_data_pre %>% 
+      select(Country = country, 
+             `Confirmed Cases` = cases,
+             `Deaths` = deaths,
+             `Active Cases` = active,
+             `Critical Cases` = critical,
+             `Cases per Million` = casesPerOneMillion)
+  })
 }
 
 # Run the application 
