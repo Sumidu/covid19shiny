@@ -1,4 +1,4 @@
-#
+# HEAD ----
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
 #
@@ -27,6 +27,9 @@ library(grid)
 library(jsonlite)
 library(stringdist)
 library(ggrepel)
+library(purrr)
+library(data.table)
+
 options(scipen = 9999)
 
 get_png <- function(filename) {
@@ -78,24 +81,30 @@ read_cached_file <- function(url, file){
   now <- lubridate::now()
   data_age <- lubridate::interval(timestamp, now)
   
-  if (time_length(data_age, "hours") > 12) {
+  if (time_length(data_age, "hours") > 6) {
     data <- read_csv(url)
     write_rds(data, file)
     write_ts(str_sub(file, end = -5))
   } else {
     cat(paste("Data age:", as.duration(data_age), "- Using cached version."))
-    data <- read_rds(file)
+    if(file.exists(file)) {
+      data <- read_rds(file)
+    } else {
+      data <- read_csv(url)
+      write_rds(data, file)
+      write_ts(str_sub(file, end = -5))
+    }
   }
   data
 }
 
 read_confirmed_cases <- function() {
-  read_cached_file("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv",
+  read_cached_file("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv",
                    "confirmed.rds")
 }
 
 read_death_cases <- function() {
-  read_cached_file("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv",
+  read_cached_file("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv",
                    "deaths.rds")
 }
 
@@ -103,20 +112,49 @@ read_death_cases <- function() {
 # API DATA ----
 
 read_recent_cases <- function(){
-  json_data <- jsonlite::read_json("https://corona.lmao.ninja/countries")
-  most_recent_data_pre <- map(json_data, as.data.frame) %>% do.call(rbind,.)
-  
-  
-  most_recent_data_pre$country <- fct_recode(most_recent_data_pre$country,
-                                             "Korea, South" = "S. Korea",
-                                             "United Kingdom" = "UK", 
-                                             "Cruise Ship" = "Diamond Princess",
-                                             "US" = "USA",
-                                             "Taiwan*" = "Taiwan"
+  most_recent_data_pre <- data.frame()
+  tryCatch(
+    expr = {
+      
+      json_data <- jsonlite::read_json("https://corona.lmao.ninja/countries")
+      #most_recent_data_pre <- map(json_data, as.data.frame) %>% do.call(rbind,.)
+      
+      dt_list <- map(json_data, as.data.table)
+      dt <- rbindlist(dt_list, fill = TRUE, idcol = T) 
+      dt %>% 
+        as_tibble() %>% 
+        select(-countryInfo) %>% 
+        distinct() -> most_recent_data_pre
+      
+      
+      most_recent_data_pre$country <- fct_recode(most_recent_data_pre$country,
+                                                 "Korea, South" = "S. Korea",
+                                                 "United Kingdom" = "UK", 
+                                                 "Cruise Ship" = "Diamond Princess",
+                                                 "US" = "USA",
+                                                 "Taiwan*" = "Taiwan"
+      )
+      
+    },
+    error = function(e){ 
+      message('Caught an error!')
+      print(e)
+      return(data.frame())
+    },
+    warning = function(w){
+      message('Caught an warning!')
+      print(w)
+    },
+    finally = {
+      message('All done, quitting.')
+    }
   )
+  
   
   most_recent_data_pre
 }
+
+
 
 closest_match <- function(x, list) {
   id <- stringdist::amatch(x = x, countries)
@@ -158,17 +196,25 @@ most_recent_data_pre <- read_recent_cases()
 all_cases <- most_recent_data_pre %>% as_tibble() %>% tally(cases) %>% pull(n)
 all_deaths <- most_recent_data_pre %>% as_tibble() %>% tally(deaths) %>% pull(n)
 
-most_recent_data <- most_recent_data_pre %>% 
-  as_tibble() %>% 
-  select(country, cases, deaths) %>% 
-  mutate(date = Sys.Date()) %>% 
-  mutate(`Country/Region` = closest_match(country, countries)) %>% 
-  filter(!is.na(`Country/Region`)) %>% 
-  select(`Country/Region`, date, cases, deaths) %>% 
-  pivot_longer(cols = c(cases, deaths), names_to = "type", values_to = "value") %>% 
-  mutate(type = str_replace(type, "cases", "confirmed"),
-         type = str_replace(type, "deaths", "deceased"))
+
+if(nrow(most_recent_data_pre) > 0) {
+  most_recent_data <- most_recent_data_pre %>% 
+    as_tibble() %>% 
+    select(country, cases, deaths) %>% 
+    mutate(date = Sys.Date()) %>% 
+    mutate(`Country/Region` = closest_match(country, countries)) %>% 
+    filter(!is.na(`Country/Region`)) %>% 
+    select(`Country/Region`, date, cases, deaths) %>% 
+    pivot_longer(cols = c(cases, deaths), names_to = "type", values_to = "value") %>% 
+    mutate(type = str_replace(type, "cases", "confirmed"),
+           type = str_replace(type, "deaths", "deceased"))
   
+  all_data <- most_recent_data %>%   
+    bind_rows(all_data, .)  
+  
+  } else {
+  most_recent_data <- data.frame()
+}
   #room for manual fixes
 
 if(F) {
@@ -213,8 +259,7 @@ if(F) {
 # NOTE TO SELF... THIS breaks the visualization somehow???
 # What happens with the data here?
 # Join most recent data in
-all_data <- most_recent_data %>%   
-  bind_rows(all_data, .)  
+
   #arrange(`Country/Region`, type, date) %>% 
   #complete(date = seq.Date(min(date), as.Date(max(date)), by="day"), type) %>%
   #arrange(`Country/Region`, type, date) %>% 
@@ -312,6 +357,10 @@ server <- function(input, output) {
   
   
   get_data <- reactive({
+    
+    sdate <- input$start_date[1]
+    edate <- input$start_date[2]
+    
     all_data <- all_data %>% 
       mutate(days = as.numeric((date - data_start))) %>%   # turn dates into counts
       filter(value > input$cases_limit || type == "deceased") # filter all cases before confirmed threshold
@@ -323,7 +372,11 @@ server <- function(input, output) {
     
     all_data %>% dplyr::left_join(start_dataset) %>% 
       mutate(matched_days = days - onset) %>%
-      mutate(lvalue = log(value + 1))
+      mutate(lvalue = log(value + 1)) %>% 
+      filter(value > 0) %>% 
+      filter(`Country/Region` %in% input$country_selector) %>% 
+      filter(matched_days %in% sdate:edate) %>% 
+      mutate(label = ifelse(`Country/Region` == input$model_country, scales::number(value,big.mark = ","), ""))
   })
   
   get_ref_line <- reactive({
@@ -381,11 +434,7 @@ server <- function(input, output) {
     
     
     ##### get filtered data 
-    d <- get_data() %>% 
-      filter(value > 0) %>% 
-      filter(`Country/Region` %in% input$country_selector) %>% 
-      filter(matched_days %in% sdate:edate) %>% 
-      mutate(label = ifelse(`Country/Region` == input$model_country, scales::number(value,big.mark = ","), ""))
+    d <- get_data() 
     
     # apply factor recoding (i18n)
     d$type <- fct_recode(d$type, !!!levels)
